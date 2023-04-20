@@ -3,6 +3,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class StudentManager {
@@ -47,11 +48,52 @@ public class StudentManager {
 
     private static int loggedInMenu() {
         System.out.println("-----------------------");
-        System.out.println("Press 1 to log out");
+        if (loggedInUser.isStudent()) {
+            System.out.println("Press 1 to see the list of subject you are enrolled in.");
+            System.out.println("Press 2 to see the list of subject you are not enrolled in.");
+            System.out.println("Press 3 to enroll in a subject.");
+            System.out.println("Press 4 to drop out.");
+        } else {
+            System.out.println("Press 1 to see your subject list.");
+            System.out.println("Press 2 to add a subject.");
+            System.out.println("Press 3 to delete a subject.");
+        }
+
+        System.out.println("Press 0 to log out");
         Scanner scanner = new Scanner(System.in);
         int userAction = scanner.nextInt();
         switch (userAction) {
             case 1:
+                if (loggedInUser.isStudent()) {
+                    listOfSubjects(loggedInUser);
+                } else {
+                    displaySubjects(loggedInUser);
+                }
+                break;
+
+            case 2:
+                if (loggedInUser.isStudent()) {
+                    listOfSubjectsNotEnrolled(loggedInUser);
+                } else {
+                    addSubject(loggedInUser);
+                }
+                break;
+
+            case 3:
+                if (loggedInUser.isStudent()) {
+                    enrollInSubject(loggedInUser);
+                } else {
+                    deleteSubject(loggedInUser);
+                }
+                break;
+
+            case 4:
+                if (loggedInUser.isStudent()) {
+                    dropOutSubject(loggedInUser);
+                }
+                break;
+
+            case 0:
                 loggedInUser = null;
                 break;
         }
@@ -117,14 +159,136 @@ public class StudentManager {
         userList.add(user);
 
     }
-    private static void displayTeacherSubject(User teacher) {
-        subjects.forEach(subject -> {
-            if (teacher.equals(subject.getTeacher())){
-                System.out.println(subject.getName());
-            }
-        });
+
+    private static void displaySubjects(User user) {
+        if (!user.isStudent()) {
+            subjects.forEach(subject -> {
+                if (user.equals(subject.getTeacher())) {
+                    System.out.println(subject.getName());
+                }
+            });
+        } else {
+            subjects.forEach(subject -> {
+                if (subject.getStudents().contains(user)) {
+                    System.out.println(subject.getName());
+                }
+            });
+        }
     }
 
+    private static void addSubject(User user) {
+        if (!user.isStudent()) {
+            Subject newSubject = new Subject();
+            System.out.println("Please write the name of the new subject.");
+            Scanner scanner = new Scanner(System.in);
+            String name = scanner.next();
+            newSubject.setName(name);
+
+
+            System.out.println("Please write the description of the subject.");
+            String describtion = scanner.next();
+            newSubject.setDescription(describtion);
+            newSubject.setTeacher(user);
+            newSubject.setStudents(new ArrayList<>());
+
+            subjects.add(newSubject);
+            System.out.println("You added a new subject! ");
+
+        }
+    }
+
+    private static void deleteSubject(User user) {
+        if (!user.isStudent()) {
+            System.out.println("Please enter the name of the subject you want to delete. ");
+            Scanner scanner = new Scanner(System.in);
+            String delete = scanner.next();
+            for (int i = 0; i < subjects.size(); i++) {
+                if (subjects.get(i).getName().equals(delete)) {
+                    subjects.remove(i);
+                    System.out.println("You just deleted " + delete + "!");
+                    return;
+                }
+            }
+            System.out.println("No subject found with this name!");
+        }
+    }
+
+    private static void listOfSubjects(User user) {
+        if (user.isStudent()) {
+            subjects.forEach(subject -> {
+                if (subject.getStudents().contains(user)) {
+                    System.out.println(subject.getName());
+                }
+            });
+        }
+    }
+
+    private static void listOfSubjectsNotEnrolled(User user) {
+        if (user.isStudent()) {
+            subjects.forEach(subject -> {
+                if (!subject.getStudents().contains(user)) {
+                    System.out.println(subject.getName());
+                }
+
+            });
+        }
+    }
+
+    private static void enrollInSubject(User user) {
+        if (user.isStudent()) {
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Write the name of subject you want to enroll.");
+            String newSubjectName = scanner.next();
+            AtomicBoolean isSubjectAvailable = new AtomicBoolean(false);
+            subjects.forEach(subject -> {
+                if (subject.getName().equals(newSubjectName))
+                    if (subject.getStudents().contains(user)) {
+                        System.out.println("You are already enrolled!");
+                        return;
+                    } else {
+                        List<User> studentList = subject.getStudents();
+                        studentList.add(user);
+                        subject.setStudents(studentList);
+                        System.out.println("You have enrolled in " + newSubjectName);
+                        isSubjectAvailable.set(true);
+                    }
+            });
+            if (!isSubjectAvailable.get()) {
+                System.out.println("Subject doesn't exist.");
+            }
+        }
+    }
+
+    private static void dropOutSubject(User user) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Write the name of the subject you want to drop out.");
+        String dropOut = scanner.next();
+        AtomicBoolean isSubjectAvailable = new AtomicBoolean(false);
+        subjects.forEach(subject -> {
+            if (subject.getName().equals(dropOut)) {
+                if (subject.getStudents().contains(loggedInUser)) {
+                    for (int i = 0; i < subject.getStudents().size(); i++) {
+                        if (subject.getStudents().get(i).getLastName().equals(loggedInUser.getLastName()) && subject.getStudents().get(i).getPassword().equals(loggedInUser.getPassword())) {
+                            List<User> studentList = subject.getStudents();
+                            studentList.remove(i);
+                            subject.setStudents(studentList);
+                            System.out.println("You just dropout of " + dropOut);
+                            isSubjectAvailable.set(true);
+                            return;
+                        }
+                    }
+                } else {
+                    System.out.println("You are not enrolled in this subject!");
+                    return;
+                }
+
+            }
+
+        });
+        if (!isSubjectAvailable.get()) {
+            System.out.println("Subject doesn't exist.");
+        }
+    }
 
     private static String generatePassword() {
         String password = UUID.randomUUID().toString().replace("-", "");
@@ -141,7 +305,7 @@ public class StudentManager {
         User u2 = new User();
         u2.setFirstName("Kristi");
         u2.setLastName("Bualli");
-        u2.setPassword("G1");
+        u2.setPassword("KB1");
         u2.setStudent(true);
 
 
@@ -154,16 +318,23 @@ public class StudentManager {
         User u4 = new User();
         u4.setFirstName("Sabom");
         u4.setLastName("Pupa");
-        u4.setPassword("S1");
+        u4.setPassword("SP1");
         u4.setStudent(false);
+
+        User u5 = new User();
+        u5.setFirstName("Ledio");
+        u5.setLastName("Papi");
+        u5.setPassword("LP1");
+        u5.setStudent(true);
 
         userList.add(u1);
         userList.add(u2);
         userList.add(u3);
         userList.add(u4);
+        userList.add(u5);
 
         Subject math = new Subject();
-        math.setName("Math.");
+        math.setName("Math");
         math.setDescription("Advanced mathematics subject.");
         math.setTeacher(u1);
         List<User> studentsInMath = new ArrayList<>();
@@ -175,15 +346,21 @@ public class StudentManager {
         history.setName("History");
         history.setDescription("World history.");
         history.setTeacher(u4);
-        history.setStudents(List.of(u2));
+        history.setStudents(List.of(u2, u3));
+
+        Subject lecture = new Subject();
+        lecture.setName("Lecture");
+        lecture.setDescription("Learning lecture");
+        lecture.setTeacher(u4);
+        lecture.setStudents(List.of(u5));
 
 
         subjects.add(math);
         subjects.add(history);
+        subjects.add(lecture);
 
 
     }
-
 
 
 }
